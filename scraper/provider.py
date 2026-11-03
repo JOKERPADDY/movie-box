@@ -7,7 +7,10 @@ from urllib.parse import quote, urlparse
 
 import httpx
 
-from .models import Caption, CatalogFilters, Detail, Dub, Episode, FilterGroup, FilterValue, Home, Page, Playback, Ranking, Season, Section, Stream, Title
+try:
+    from .models import Caption, CatalogFilters, Detail, Dub, Episode, FilterGroup, FilterValue, Home, Page, Playback, Ranking, Season, Section, Stream, Title
+except ImportError:
+    from models import Caption, CatalogFilters, Detail, Dub, Episode, FilterGroup, FilterValue, Home, Page, Playback, Ranking, Season, Section, Stream, Title
 
 BASE_URL = "https://themoviebox.xyz"
 API_PATH = "/wefeed-h5api-bff"

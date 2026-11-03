@@ -6,8 +6,12 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from .models import Caption, CatalogFilters, Detail, Episode, Health, Home, Page, Playback, Ranking
-from .provider import MovieBoxProvider, ProviderError
+try:
+    from .models import Caption, CatalogFilters, Detail, Episode, Health, Home, Page, Playback, Ranking
+    from .provider import MovieBoxProvider, ProviderError
+except ImportError:
+    from models import Caption, CatalogFilters, Detail, Episode, Health, Home, Page, Playback, Ranking
+    from provider import MovieBoxProvider, ProviderError
 
 
 @asynccontextmanager
