@@ -42,9 +42,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ secrets.ORACLE_HOST != '' }}
     steps:
       - name: Deploy to Oracle platform
+        if: "${{ secrets.ORACLE_HOST != '' }}"
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ORACLE_HOST }}
