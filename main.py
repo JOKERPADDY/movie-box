@@ -80,6 +80,10 @@ def is_family_friendly(item: dict) -> bool:
         return False
     return True
 
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "movie-box API"}
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
