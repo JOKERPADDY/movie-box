@@ -59,6 +59,34 @@ def test_home_and_paginated_browse():
     assert service.popular_searches() == ["Example Movie"]
 
 
+def test_short_series_browse_uses_dedicated_paginated_channel():
+    calls = []
+
+    def handler(request):
+        assert request.method == "POST"
+        assert request.url.path == "/wefeed-h5api-bff/subject/filter"
+        body = json.loads(request.content)
+        assert body == {"channelId": 7, "page": 2, "perPage": 18, "sort": "ForYou"}
+        calls.append(body)
+        return httpx.Response(200, json={"code": 0, "data": {
+            "items": [
+                {**SERIES, "subjectId": "short-1", "subjectType": 7, "title": "Short Drama"},
+                SUBJECT,
+            ],
+            "pager": {"hasMore": True, "nextPage": "3"},
+        }})
+
+    service = MovieBoxProvider(httpx.Client(
+        base_url="https://themoviebox.xyz",
+        transport=httpx.MockTransport(handler),
+    ))
+    result = service.browse(2, "short_series")
+    assert [item.id for item in result.items] == ["short-1"]
+    assert result.items[0].kind == "short_series"
+    assert result.page == 2 and result.next_page == 3 and result.has_more
+    assert calls == [{"channelId": 7, "page": 2, "perPage": 18, "sort": "ForYou"}]
+
+
 def test_search_server_rendered_data():
     import scraper.provider as module
     values = [None, {"pager": 2, "items": 3}, {"hasMore": 5}, [4], {"subjectId": 6, "subjectType": 7, "title": 8, "detailPath": 9}, True, "123", 1, "Example Movie", "example-movie-abc"]

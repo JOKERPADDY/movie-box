@@ -172,6 +172,23 @@ class MovieBoxProvider:
         return self._cached(f"collection:{name}", lambda: _sections(self._data("/tab-operating", params={"tabId": tabs[name], "host": "themoviebox.xyz"})))
 
     def browse(self, page: int = 1, kind: str | None = None, tab: str | None = None) -> Page:
+        if kind == "short_series":
+            data = self._cached(
+                f"browse:short_series:{page}",
+                lambda: self._data(
+                    "/subject/filter",
+                    body={"channelId": 7, "page": page, "perPage": 18, "sort": "ForYou"},
+                ),
+            )
+            pager = data.get("pager") or {}
+            items = [_title(x) for x in data.get("items") or []]
+            return Page(
+                items=[item for item in items if item.kind == "short_series"],
+                page=page,
+                next_page=_number(pager.get("nextPage")) if pager.get("hasMore") else None,
+                has_more=bool(pager.get("hasMore")),
+            )
+
         selected_tab = tab or ("movies" if kind == "movie" else "home")
         tab_id = {"home": None, "movies": 2, "midnight": 9}.get(selected_tab)
         if selected_tab not in ("home", "movies", "midnight"):

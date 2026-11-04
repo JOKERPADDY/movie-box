@@ -98,6 +98,77 @@ def get_home(_ = Depends(verify_token)):
         pass
     return {"banners": [], "sections": []}
 
+def _browse_title(raw: dict) -> dict:
+    cover = raw.get("cover") or {}
+    stills = raw.get("stills") or {}
+    return {
+        "id": str(raw.get("subjectId") or ""),
+        "detail_path": raw.get("detailPath") or "",
+        "kind": {1: "movie", 2: "series", 7: "short_series"}.get(raw.get("subjectType"), "other"),
+        "title": raw.get("title") or "",
+        "description": raw.get("description") or "",
+        "release_date": raw.get("releaseDate") or None,
+        "duration_seconds": raw.get("duration") or None,
+        "genres": [value.strip() for value in (raw.get("genre") or "").split(",") if value.strip()],
+        "poster_url": cover.get("url"),
+        "backdrop_url": stills.get("url"),
+        "country": raw.get("countryName") or None,
+        "rating": raw.get("imdbRatingValue") or None,
+        "has_resource": bool(raw.get("hasResource")),
+    }
+
+@app.get("/v1/browse")
+def get_browse(page: int = Query(default=1, ge=1), kind: str | None = None, tab: str | None = None, _ = Depends(verify_token)):
+    if kind not in (None, "movie", "series", "short_series", "other"):
+        raise HTTPException(status_code=422, detail="Invalid kind")
+    if tab not in (None, "home", "movies", "midnight"):
+        raise HTTPException(status_code=422, detail="Invalid tab")
+
+    try:
+        if kind == "short_series":
+            response = session.post(
+                f"{H5_API_BASE}/subject/filter",
+                json={"channelId": 7, "page": page, "perPage": 18, "sort": "ForYou"},
+                timeout=15,
+            )
+        else:
+            selected_tab = tab or ("movies" if kind == "movie" else "home")
+            params = {"page": page, "perPage": 18}
+            tab_id = {"movies": 2, "midnight": 9}.get(selected_tab)
+            if tab_id is not None:
+                params["tabId"] = tab_id
+            response = session.get(f"{H5_API_BASE}/subject/trending", params=params, timeout=15)
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail="Provider browse request failed") from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Provider browse request failed")
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Provider returned invalid JSON") from exc
+    if payload.get("code") != 0:
+        raise HTTPException(status_code=502, detail="Provider rejected the browse request")
+
+    data = payload.get("data") or {}
+    raw_items = data.get("items") if kind == "short_series" else data.get("subjectList")
+    items = [_browse_title(item) for item in raw_items or []]
+    if kind:
+        items = [item for item in items if item["kind"] == kind]
+    pager = data.get("pager") or {}
+    next_page = None
+    if pager.get("hasMore"):
+        try:
+            next_page = int(pager.get("nextPage"))
+        except (TypeError, ValueError):
+            pass
+    return {
+        "items": items,
+        "page": page,
+        "next_page": next_page,
+        "has_more": bool(pager.get("hasMore")),
+    }
+
 @app.get("/v1/catalog/{name}")
 def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = Depends(verify_token)):
     try:
