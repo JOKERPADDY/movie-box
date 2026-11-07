@@ -8,10 +8,9 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <application
         android:usesCleartextTraffic="true"
-        android:label="NexaStream 2 Downloader"
+        android:label="MovieBox"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:banner="@drawable/tv_banner">
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

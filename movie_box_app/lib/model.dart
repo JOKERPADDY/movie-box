@@ -1,22 +1,3 @@
-String cleanTitleString(String rawTitle) {
-  var text = rawTitle
-      .replaceAll(
-        RegExp(
-          r'\[(?:Hindi|Tamil|Telugu|Kannada|Malayalam|Punjabi|Bengali|Urdu|Dual Audio|Dubbed|CAM).*?\]',
-          caseSensitive: false,
-        ),
-        '',
-      )
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  return text.isEmpty ? rawTitle : text;
-}
-
-String cleanSectionTitle(String raw) {
-  var text = raw.replaceAll(RegExp(r'[^\x00-\x7F]+'), '').trim();
-  return text.isEmpty ? raw : text;
-}
-
 class MovieTitle {
   final String id, path, kind, title, description;
   final String? poster, backdrop, rating;
@@ -27,7 +8,7 @@ class MovieTitle {
     : id = '${value['id'] ?? ''}',
       path = '${value['detail_path'] ?? ''}',
       kind = '${value['kind'] ?? ''}',
-      title = cleanTitleString('${value['title'] ?? ''}'),
+      title = '${value['title'] ?? ''}',
       description = '${value['description'] ?? ''}',
       poster = value['poster_url'] as String?,
       backdrop = value['backdrop_url'] as String?,
@@ -63,7 +44,7 @@ class MovieSection {
   final String title;
   final List<MovieTitle> items;
   MovieSection.fromJson(Map<String, dynamic> data)
-    : title = cleanSectionTitle('${data['title'] ?? ''}'),
+    : title = '${data['title'] ?? ''}',
       items = (data['items'] as List? ?? [])
           .map((e) => MovieTitle.fromJson(e as Map<String, dynamic>))
           .toList();

@@ -64,7 +64,7 @@ class CreditsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         children: [
           Text(
-            'NexaStream by R3AP3R Editz',
+            'Movie Box by R3AP3R Editz',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 12),
@@ -78,12 +78,12 @@ class CreditsScreen extends StatelessWidget {
           const SizedBox(height: 12),
           ListTile(
             leading: const Icon(Icons.description_outlined),
-            title: const Text('NexaStream license'),
+            title: const Text('Movie Box license'),
             subtitle: const Text('Full terms, available offline'),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const BundledNoticeScreen(
-                  title: 'NexaStream license',
+                  title: 'Movie Box license',
                   asset: 'assets/notices/LICENSE',
                 ),
               ),
@@ -107,9 +107,37 @@ class CreditsScreen extends StatelessWidget {
             subtitle: const Text('Third-party packages retain their own terms'),
             onTap: () => showLicensePage(
               context: context,
-              applicationName: 'NexaStream 2 Downloader',
-              applicationLegalese: 'NexaStream by R3AP3R Editz',
+              applicationName: 'Movie Box',
+              applicationLegalese: 'Movie Box by R3AP3R Editz',
             ),
+          ),
+          const Divider(),
+          Text(
+            'Optional donations',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Donations support the creator and do not unlock features or access. '
+            'The external support page is XibeCode-branded and says donor names, '
+            'avatars, amounts, and reviews will be public. Review its current '
+            'notice before donating.',
+          ),
+          const SizedBox(height: 12),
+          const SelectableText(donationUrl),
+          const SizedBox(height: 12),
+          const DonateButton(),
+          TextButton.icon(
+            icon: const Icon(Icons.copy_outlined),
+            label: const Text('Copy donation link'),
+            onPressed: () async {
+              await Clipboard.setData(const ClipboardData(text: donationUrl));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Donation link copied.')),
+                );
+              }
+            },
           ),
         ],
       ),

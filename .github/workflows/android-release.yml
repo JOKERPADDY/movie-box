@@ -105,10 +105,10 @@ jobs:
             exit 1
           fi
           mkdir -p ../release
-          cp "$apk" "../release/NexaStream-2-Downloader-$VERSION.apk"
+          cp "$apk" "../release/MovieBox-$VERSION.apk"
           cp "$RUNNER_TEMP/apk-signature.txt" ../release/signing-certificate.txt
           cd ../release
-          sha256sum "NexaStream-2-Downloader-$VERSION.apk" > SHA256SUMS
+          sha256sum "MovieBox-$VERSION.apk" > SHA256SUMS
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -140,11 +140,11 @@ jobs:
           set -euo pipefail
           cd release
           sha256sum --check SHA256SUMS
-          printf 'Android production release.\n\nBuild number: %s\nSource commit: %s\n\n## What'"'"'s new\n\n- Speed and Subtitles sit at the top right of the player.\n- Subtitles open in a panel on the right. Position, timing, background darkness, and text size update on the video while the panel is open. Tap the picture outside the panel to close it.\n- Language is a dropdown under those controls. Position, background, text size, and the chosen language are saved on the device and used for later videos. The timing offset applies only to the video you are watching.\n- A downloaded episode plays from the phone instead of streaming.\n- On a series page, Play and Download are above the episode list. Episode search accepts an episode number or a label such as S2 E4.\n- Catalog search keeps multi-season series that the site lists, including a different spelling such as "mr robot" for "Mr. Robot".\n\nInstall NexaStream-2-Downloader-%s.apk. SHA256SUMS contains its SHA-256 checksum; signing-certificate.txt identifies the signing certificate.\n\nAndroid phones, tablets, and Android TV only.\n\nBackground downloads continue on Android with progress notifications. Manage the persistent queue in Downloads with pause, resume, cancel, and retry. Android force-stop and battery restrictions can interrupt downloads; reopen NexaStream to recover the queue and resume or retry interrupted items. Allow NexaStream notifications to start, resume, or retry downloads; if denied, enable them in Android Settings. Pause/resume depends on server support and link availability. Unknown-length sources are rejected; choose another quality.\n\nA previous installation signed with a different key must be uninstalled first, which removes its local app data.\n' \
+          printf 'Android production release.\n\nBuild number: %s\nSource commit: %s\n\n## What'"'"'s new\n\n- Speed and Subtitles sit at the top right of the player.\n- Subtitles open in a panel on the right. Position, timing, background darkness, and text size update on the video while the panel is open. Tap the picture outside the panel to close it.\n- Language is a dropdown under those controls. Position, background, text size, and the chosen language are saved on the device and used for later videos. The timing offset applies only to the video you are watching.\n- A downloaded episode plays from the phone instead of streaming.\n- On a series page, Play and Download are above the episode list. Episode search accepts an episode number or a label such as S2 E4.\n- Catalog search keeps multi-season series that the site lists, including a different spelling such as "mr robot" for "Mr. Robot".\n\nInstall MovieBox-%s.apk. SHA256SUMS contains its SHA-256 checksum; signing-certificate.txt identifies the signing certificate.\n\nAndroid phones, tablets, and Android TV only.\n\nBackground downloads continue on Android with progress notifications. Manage the persistent queue in Downloads with pause, resume, cancel, and retry. Android force-stop and battery restrictions can interrupt downloads; reopen MovieBox to recover the queue and resume or retry interrupted items. Allow MovieBox notifications to start, resume, or retry downloads; if denied, enable them in Android Settings. Pause/resume depends on server support and link availability. Unknown-length sources are rejected; choose another quality.\n\nA previous installation signed with a different key must be uninstalled first, which removes its local app data.\n' \
             "$BUILD_NUMBER" "$RELEASE_COMMIT" "$VERSION" > "$RUNNER_TEMP/release-notes.md"
-          gh release create "v$VERSION" "NexaStream-2-Downloader-$VERSION.apk" SHA256SUMS signing-certificate.txt \
-            --target "$RELEASE_COMMIT" --title "NexaStream 2 Downloader $VERSION" \
+          gh release create "v$VERSION" "MovieBox-$VERSION.apk" SHA256SUMS signing-certificate.txt \
+            --target "$RELEASE_COMMIT" --title "MovieBox $VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md" --generate-notes --draft
           gh release edit "v$VERSION" --draft=false --latest
-          printf '## Published NexaStream 2 Downloader %s\n\nhttps://github.com/%s/releases/tag/v%s\n' \
+          printf '## Published MovieBox %s\n\nhttps://github.com/%s/releases/tag/v%s\n' \
             "$VERSION" "$GH_REPO" "$VERSION" >> "$GITHUB_STEP_SUMMARY"

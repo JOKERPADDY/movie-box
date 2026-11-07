@@ -10,5 +10,3 @@ __pycache__/
 *.jks
 *.keystore
 key.properties
-.idea/
-
