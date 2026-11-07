@@ -65,6 +65,14 @@ class MovieLibrary extends ChangeNotifier {
       ),
   };
 
+  late String region = prefs.getString('region') ?? 'US';
+
+  Future<void> saveRegion(String value) async {
+    region = value;
+    await prefs.setString('region', value);
+    _notify();
+  }
+
   MovieLibrary(
     this.prefs, {
     this.downloadBackend,

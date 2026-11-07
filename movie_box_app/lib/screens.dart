@@ -11,6 +11,7 @@ import 'loading.dart';
 import 'model.dart';
 import 'notices.dart';
 import 'player.dart';
+import 'updater.dart';
 
 void showError(BuildContext context, Object error) {
   if (!context.mounted) return;
@@ -212,6 +213,216 @@ class ScreenHeader extends StatelessWidget {
   );
 }
 
+class CategorySectionData {
+  final String title;
+  final List<MovieTitle> items;
+  CategorySectionData(this.title, this.items);
+}
+
+class HomeFeedPayload {
+  final List<MovieTitle> heroTitles;
+  final List<CategorySectionData> sections;
+  HomeFeedPayload({required this.heroTitles, required this.sections});
+}
+
+Future<HomeFeedPayload> loadHomeFeed(MovieApi api) async {
+  MovieHome? homeData;
+  try {
+    homeData = await api.home();
+  } catch (e) {
+    debugPrint('Home api fetch error: $e');
+  }
+
+  List<MovieTitle> getHomeSectionItems(String name) {
+    if (homeData == null) return [];
+    for (final sec in homeData.sections) {
+      if (sec.title.toLowerCase().contains(name.toLowerCase())) {
+        return sec.items;
+      }
+    }
+    return [];
+  }
+
+  const musicMixKeywords = [
+    'mix', 'dj', 'song', 'hiphop', 'trap', 'music', 'rnb', 'throwback',
+    'audio', 'video mix', 'lyric', 'beat', 'ft.', 'remix', 'mixtape', 'radio',
+    'instrumental',
+  ];
+
+  Future<List<MovieTitle>> fetchSearchItems(String query, {List<String>? excludeKeywords}) async {
+    try {
+      final page = await api.search(query, 1);
+      if (excludeKeywords != null && excludeKeywords.isNotEmpty) {
+        return page.items.where((item) {
+          final t = (item.title).toLowerCase();
+          return !excludeKeywords.any((kw) => t.contains(kw));
+        }).toList();
+      }
+      return page.items;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<MovieTitle>> fetchTeenRomanceEnglish() async {
+    final list1 = await fetchSearchItems('teen romance english');
+    final list2 = await fetchSearchItems('teen drama english');
+    final combined = <MovieTitle>[];
+    final seen = <String>{};
+    for (final item in [...list1, ...list2]) {
+      final t = item.title.toLowerCase();
+      if (!t.contains('[hindi]') && !t.contains('[tamil]') && !t.contains('[telugu]')) {
+        if (seen.add(item.path)) {
+          combined.add(item);
+        }
+      }
+    }
+    return combined;
+  }
+
+  Future<List<MovieTitle>> fetchKenyanSeries() async {
+    final list1 = await fetchSearchItems('nairobi', excludeKeywords: musicMixKeywords);
+    final list2 = await fetchSearchItems('kenya', excludeKeywords: musicMixKeywords);
+    final list3 = await fetchSearchItems('kenyan series', excludeKeywords: musicMixKeywords);
+    final combined = <MovieTitle>[];
+    final seen = <String>{};
+    for (final item in [...list1, ...list2, ...list3]) {
+      if (seen.add(item.path)) {
+        combined.add(item);
+      }
+    }
+    return combined;
+  }
+
+  final results = await Future.wait([
+    fetchTeenRomanceEnglish(),                                                      // 0
+    fetchSearchItems('action'),                                                     // 1
+    fetchSearchItems('crime'),                                                      // 2
+    fetchSearchItems('korean drama'),                                               // 3
+    fetchKenyanSeries(),                                                            // 4
+    fetchSearchItems('bet'),                                                        // 5
+    api.catalog('movies', 1).then((p) => p.items).catchError((_) => <MovieTitle>[]), // 6
+    api.catalog('series', 1).then((p) => p.items).catchError((_) => <MovieTitle>[]), // 7
+  ]);
+
+  final teenRomanceItems = results[0];
+  final actionItems = results[1];
+  final crimeItems = results[2];
+  final kdramaItems = results[3];
+  final kenyanItems = results[4];
+  final betItems = results[5];
+  final catalogMovies = results[6];
+  final catalogSeries = results[7];
+
+  final hollywoodHome = getHomeSectionItems('hollywood');
+  final westernTvHome = getHomeSectionItems('western tv');
+  final trendingHome = getHomeSectionItems('trending');
+
+  final heroTitles = <MovieTitle>[];
+  for (final item in teenRomanceItems.take(3)) {
+    heroTitles.add(item);
+  }
+  for (final item in [...hollywoodHome, ...westernTvHome, ...trendingHome]) {
+    if (!heroTitles.any((t) => t.path == item.path)) {
+      heroTitles.add(item);
+    }
+    if (heroTitles.length >= 7) break;
+  }
+  if (heroTitles.isEmpty && homeData != null) {
+    heroTitles.addAll(homeData.banners);
+  }
+
+  final sections = <CategorySectionData>[];
+
+  // 4. Trending Today
+  final trendingList = trendingHome.isNotEmpty ? trendingHome : teenRomanceItems;
+  if (trendingList.isNotEmpty) {
+    sections.add(CategorySectionData('Trending Today', trendingList));
+  }
+
+  // 5. Popular Movies
+  final popularMoviesList = getHomeSectionItems('movies').isNotEmpty
+      ? getHomeSectionItems('movies')
+      : catalogMovies;
+  if (popularMoviesList.isNotEmpty) {
+    sections.add(CategorySectionData('Popular Movies', popularMoviesList));
+  }
+
+  // 6. Popular Series
+  final popularSeriesList = getHomeSectionItems('series').isNotEmpty
+      ? getHomeSectionItems('series')
+      : catalogSeries;
+  if (popularSeriesList.isNotEmpty) {
+    sections.add(CategorySectionData('Popular Series', popularSeriesList));
+  }
+
+  // 7. Recently Added
+  final recentlyAdded = getHomeSectionItems('coming soon').isNotEmpty
+      ? getHomeSectionItems('coming soon')
+      : catalogMovies;
+  if (recentlyAdded.isNotEmpty) {
+    sections.add(CategorySectionData('Recently Added', recentlyAdded));
+  }
+
+  // 8. Top Rated
+  final topRated = hollywoodHome.isNotEmpty ? hollywoodHome : catalogMovies;
+  if (topRated.isNotEmpty) {
+    sections.add(CategorySectionData('Top Rated', topRated));
+  }
+
+  // 9. Action & Adventure
+  if (actionItems.isNotEmpty) {
+    sections.add(CategorySectionData('Action & Adventure', actionItems));
+  }
+
+  // 10. Romance & Teen Drama
+  if (teenRomanceItems.isNotEmpty) {
+    sections.add(CategorySectionData('Romance & Teen Drama', teenRomanceItems));
+  }
+
+  // 11. Crime & Thriller
+  if (crimeItems.isNotEmpty) {
+    sections.add(CategorySectionData('Crime & Thriller', crimeItems));
+  }
+
+  // 12. Korean Dramas
+  if (kdramaItems.isNotEmpty) {
+    sections.add(CategorySectionData('Korean Dramas', kdramaItems));
+  }
+
+  // 13. Hollywood
+  final hollywoodList = hollywoodHome.isNotEmpty ? hollywoodHome : catalogMovies;
+  if (hollywoodList.isNotEmpty) {
+    sections.add(CategorySectionData('Hollywood', hollywoodList));
+  }
+
+  // 14. Bollywood
+  final bollywoodList = getHomeSectionItems('bollywood');
+  if (bollywoodList.isNotEmpty) {
+    sections.add(CategorySectionData('Bollywood', bollywoodList));
+  }
+
+  // 15. Anime
+  final animeList = getHomeSectionItems('anime').isNotEmpty
+      ? getHomeSectionItems('anime')
+      : getHomeSectionItems('animation');
+  if (animeList.isNotEmpty) {
+    sections.add(CategorySectionData('Anime', animeList));
+  }
+
+  // 16. KENYAN SERIES
+  if (kenyanItems.isNotEmpty) {
+    sections.add(CategorySectionData('KENYAN SERIES', kenyanItems));
+  }
+
+  // 17. Bet +
+  if (betItems.isNotEmpty) {
+    sections.add(CategorySectionData('Bet +', betItems));
+  }
+
+  return HomeFeedPayload(heroTitles: heroTitles, sections: sections);
+}
+
 class HomeScreen extends StatefulWidget {
   final MovieApi api;
   final MovieLibrary library;
@@ -221,7 +432,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<MovieHome> data = widget.api.home();
+  late Future<HomeFeedPayload> data = loadHomeFeed(widget.api);
+
   @override
   void initState() {
     super.initState();
@@ -240,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void reload() {
     setState(() {
-      data = widget.api.home();
+      data = loadHomeFeed(widget.api);
     });
   }
 
@@ -260,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // The FutureBuilder displays refresh errors with a retry action.
       }
     },
-    child: FutureBuilder<MovieHome>(
+    child: FutureBuilder<HomeFeedPayload>(
       future: data,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done ||
@@ -268,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              const ScreenHeader('MovieBox'),
+              const ScreenHeader('NexaStream'),
               SizedBox(
                 height: 400,
                 child: Center(
@@ -282,61 +494,74 @@ class _HomeScreenState extends State<HomeScreen> {
                           library: widget.library,
                           onSettingsSaved: reload,
                         )
-                      : const MovieBoxLoader(label: 'Loading your home'),
+                      : const MovieBoxLoader(label: 'Loading your home feed'),
                 ),
               ),
             ],
           );
         }
-        final home = snapshot.data!;
+        final payload = snapshot.data!;
         final history = latestWatchEntries(widget.library.history.values);
+
         return ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            const ScreenHeader('MovieBox'),
+            const ScreenHeader('NexaStream'),
+
+            // 1. Hero Slider
             PopularCarousel(
-              titles: home.sections
-                  .where(
-                    (section) =>
-                        section.title.toLowerCase().contains('popular'),
-                  )
-                  .expand((section) => section.items)
-                  .take(6)
-                  .toList(),
-              fallback: home.banners,
+              titles: payload.heroTitles.take(7).toList(),
+              fallback: payload.heroTitles,
               onTap: (title) =>
                   openTitle(context, widget.api, widget.library, title),
             ),
+
+            // 2. Category Shortcuts
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  for (final category in [
-                    ('movies', 'Movies'),
-                    ('series', 'Series'),
-                    ('animation', 'Anime'),
-                  ])
-                    ActionChip(
-                      label: Text(category.$2),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => Scaffold(
-                            appBar: AppBar(title: Text(category.$2)),
-                            body: CatalogScreen(
-                              api: widget.api,
-                              library: widget.library,
-                              name: category.$1,
-                              label: category.$2,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final category in [
+                      ('teen romance', 'Romance & Teen Drama'),
+                      ('action', 'Action & Adventure'),
+                      ('crime', 'Crime & Thriller'),
+                      ('korean drama', 'Korean Dramas'),
+                      ('hollywood', 'Hollywood'),
+                      ('bollywood', 'Bollywood'),
+                      ('animation', 'Anime'),
+                      ('kenyan', 'KENYAN SERIES'),
+                      ('bet', 'Bet +'),
+                      ('movies', 'Movies'),
+                      ('series', 'Series'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(category.$2),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => Scaffold(
+                                appBar: AppBar(title: Text(category.$2)),
+                                body: CatalogScreen(
+                                  api: widget.api,
+                                  library: widget.library,
+                                  name: category.$1,
+                                  label: category.$2,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
+
+            // 3. Continue Watching
             if (history.isNotEmpty)
               ContinueRow(
                 history,
@@ -349,7 +574,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   resume: entry,
                 ),
               ),
-            for (final section in home.sections)
+
+            // 4 through 17. Sections in exact requested order
+            for (final section in payload.sections)
               if (section.items.isNotEmpty)
                 MovieRow(
                   section.title,
@@ -1518,7 +1745,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           padding: EdgeInsets.fromLTRB(18, 8, 18, 12),
           child: Text(
             'Downloads continue in the background. Android notifications show progress. '
-            'If your device stops a transfer, reopen MovieBox to recover it.',
+            'If your device stops a transfer, reopen NexaStream to recover it.',
           ),
         ),
         for (final task in widget.library.downloadTasks.values)
@@ -1853,16 +2080,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Use this app and server only on a trusted network or private VPN.',
         ),
         const Divider(height: 32),
-        const DonateButton(),
-        const SizedBox(height: 10),
         const Text(
-          'Donations are optional and do not unlock features. Opens an external support page; review its public donor notice before donating.',
+          'Content Region & Language',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        const Text(
+          'Select your region to prioritize US/Hollywood or local content.',
+        ),
+        const SizedBox(height: 14),
+        DropdownButtonFormField<String>(
+          value: widget.library.region,
+          decoration: const InputDecoration(
+            labelText: 'Preferred Region',
+            border: OutlineInputBorder(),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'US',
+              child: Text('🇺🇸 United States (Hollywood / English)'),
+            ),
+            DropdownMenuItem(
+              value: 'GLOBAL',
+              child: Text('🌐 Global (All Content)'),
+            ),
+            DropdownMenuItem(
+              value: 'IN',
+              child: Text('🇮🇳 India (Bollywood & Regional)'),
+            ),
+          ],
+          onChanged: (val) {
+            if (val != null) {
+              widget.library.saveRegion(val);
+              widget.onSaved();
+            }
+          },
+        ),
+        const Divider(height: 32),
+        ListTile(
+          leading: const Icon(Icons.system_update_outlined),
+          title: const Text('Check for updates'),
+          subtitle: const Text('Current version: v${UpdateChecker.currentVersion}'),
+          onTap: () async {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Checking for updates...')),
+            );
+            final update = await UpdateChecker.checkForUpdate();
+            if (!context.mounted) return;
+            if (update != null) {
+              await UpdateChecker.showUpdateDialog(context, update);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('You are using the latest version (v${UpdateChecker.currentVersion}).'),
+                ),
+              );
+            }
+          },
+        ),
         ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('Credits and licenses'),
-          subtitle: const Text('Movie Box by R3AP3R Editz'),
+          subtitle: const Text('NexaStream by R3AP3R Editz'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const CreditsScreen()),
           ),

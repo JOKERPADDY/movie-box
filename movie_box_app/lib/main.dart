@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
 import 'library.dart';
 import 'screens.dart';
+import 'updater.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +42,7 @@ class _MovieBoxAppState extends State<MovieBoxApp> with WidgetsBindingObserver {
   late MovieApi api = MovieApi(
     baseUrl: widget.library.server,
     token: widget.library.token,
+    region: widget.library.region,
   );
   int tab = 0;
   final messengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -65,11 +67,23 @@ class _MovieBoxAppState extends State<MovieBoxApp> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> checkAppUpdate() async {
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      final update = await UpdateChecker.checkForUpdate();
+      if (update != null && mounted) {
+        await UpdateChecker.showUpdateDialog(context, update);
+      }
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(restoreDownloads());
+    unawaited(checkAppUpdate());
   }
 
   @override
@@ -86,6 +100,7 @@ class _MovieBoxAppState extends State<MovieBoxApp> with WidgetsBindingObserver {
       () => api = MovieApi(
         baseUrl: widget.library.server,
         token: widget.library.token,
+        region: widget.library.region,
       ),
     );
   }
@@ -99,12 +114,12 @@ class _MovieBoxAppState extends State<MovieBoxApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    const background = Color(0xFF101519);
-    const surface = Color(0xFF1D2529);
-    const accent = Color(0xFFF2B86B);
+    const background = Color(0xFF141414);
+    const surface = Color(0xFF1F1F1F);
+    const accent = Color(0xFFE50914);
     return MaterialApp(
       scaffoldMessengerKey: messengerKey,
-      title: 'MovieBox',
+      title: 'NexaStream 2 Downloader',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -114,13 +129,49 @@ class _MovieBoxAppState extends State<MovieBoxApp> with WidgetsBindingObserver {
           primary: accent,
           secondary: accent,
           surface: surface,
-          onSurface: Color(0xFFF0F1ED),
+          onSurface: Color(0xFFFFFFFF),
+          secondaryContainer: accent,
+          onSecondaryContainer: Colors.white,
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: background,
           elevation: 0,
         ),
         cardTheme: const CardThemeData(color: surface),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: background,
+          indicatorColor: accent,
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const IconThemeData(color: Colors.white);
+            }
+            return const IconThemeData(color: Colors.white60);
+          }),
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              );
+            }
+            return const TextStyle(
+              color: Colors.white60,
+              fontSize: 12,
+            );
+          }),
+        ),
+        navigationRailTheme: NavigationRailThemeData(
+          backgroundColor: background,
+          indicatorColor: accent,
+          selectedIconTheme: const IconThemeData(color: Colors.white),
+          unselectedIconTheme: const IconThemeData(color: Colors.white60),
+          selectedLabelTextStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+          unselectedLabelTextStyle: const TextStyle(color: Colors.white60),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: surface,

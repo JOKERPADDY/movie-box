@@ -54,7 +54,7 @@ class NativeDownloadBackend extends DownloadBackend {
       ),
       error: const native.TaskNotification(
         '{displayName}',
-        'Download failed. Open MovieBox to retry.',
+        'Download failed. Open NexaStream to retry.',
       ),
       paused: const native.TaskNotification('{displayName}', 'Download paused'),
       canceled: const native.TaskNotification(
