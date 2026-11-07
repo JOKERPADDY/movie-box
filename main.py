@@ -6,8 +6,7 @@ import base64
 import hashlib
 import hmac
 import requests
-from urllib.parse import urlparse, parse_qs
-from fastapi import FastAPI, HTTPException, Query, Header, Depends
+from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Nexastream / MovieBox Backend", version="1.1.0")
@@ -571,6 +570,10 @@ def _browse_title(raw: dict) -> dict:
     }
 
 @app.get("/")
+@app.get("")
+@app.get("/app.py")
+@app.get("/api/index")
+@app.get("/api/index.py")
 def root():
     return {"status": "ok", "service": "movie-box API", "version": "1.1.0"}
 
@@ -595,7 +598,7 @@ def get_home(_ = Depends(verify_token)):
 @app.get("/v1/western")
 @app.get("/v1/kids")
 @app.get("/v1/category/{category_id}")
-def get_category_feed(category_id: int | None = None, page: int = 1, request_path: str = "", _ = Depends(verify_token)):
+def get_category_feed(request: Request, category_id: int | None = None, page: int = Query(default=1, ge=1), _ = Depends(verify_token)):
     cat_map = {
         "movies": 1,
         "series": 5,
@@ -607,7 +610,7 @@ def get_category_feed(category_id: int | None = None, page: int = 1, request_pat
     target_id = category_id
     if target_id is None:
         for k, v in cat_map.items():
-            if k in request_path:
+            if k in request.url.path:
                 target_id = v
                 break
     if target_id is None:
@@ -673,7 +676,7 @@ def get_browse(page: int = Query(default=1, ge=1), kind: str | None = None, tab:
     }
 
 @app.get("/v1/catalog/{name}")
-def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = Depends(verify_token)):
+def get_catalog(name: str, page: int = Query(default=1, ge=1), genre: str = Query(default=""), _ = Depends(verify_token)):
     try:
         canonical = name.lower().strip()
         token = get_guest_token()
@@ -768,7 +771,7 @@ def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = De
     return {"items": [], "sections": [], "next_page": None}
 
 @app.get("/v1/search")
-def get_search(q: str = Query(...), page: int = 1, _ = Depends(verify_token)):
+def get_search(q: str = Query(...), page: int = Query(default=1, ge=1), _ = Depends(verify_token)):
     try:
         token = get_guest_token()
         headers = {}
@@ -823,8 +826,46 @@ def get_popular(_ = Depends(verify_token)):
         pass
     return []
 
+@app.get("/v1/stream/{subject_id}")
+@app.get("/stream/{subject_id}")
+def get_stream(
+    subject_id: str,
+    season: int = Query(default=1, ge=1),
+    episode: int = Query(default=1, ge=1),
+    resource_id: str | None = Query(default=None),
+    _ = Depends(verify_token)
+):
+    try:
+        return resolve_streams(subject_id, season=season, episode=episode, resource_id=resource_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/titles/{path:path}/playback")
+def get_playback(path: str, season: int = Query(default=1, ge=1), episode: int = Query(default=1, ge=1), _ = Depends(verify_token)):
+    try:
+        subject_id = resolve_subject_id_from_path(path)
+        if not subject_id:
+            raise HTTPException(status_code=404, detail="Subject not found for path")
+
+        return resolve_streams(str(subject_id), season=season, episode=episode)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/titles/{path:path}/captions")
+@app.get("/v1/captions/{subject_id}")
+def get_captions_route(path: str = "", subject_id: str = "", season: int = Query(default=1, ge=1), episode: int = Query(default=1, ge=1), _ = Depends(verify_token)):
+    try:
+        sid = subject_id or resolve_subject_id_from_path(path)
+        if sid:
+            return fetch_captions(str(sid), season=season, episode=episode)
+    except Exception:
+        pass
+    return []
+
 @app.get("/v1/titles/{path:path}/recommendations")
-def get_recommendations(path: str, page: int = 1, _ = Depends(verify_token)):
+def get_recommendations(path: str, page: int = Query(default=1, ge=1), _ = Depends(verify_token)):
     try:
         sid = resolve_subject_id_from_path(path)
         if sid:
@@ -840,44 +881,6 @@ def get_recommendations(path: str, page: int = 1, _ = Depends(verify_token)):
     except Exception:
         pass
     return {"items": [], "next_page": None}
-
-@app.get("/v1/stream/{subject_id}")
-@app.get("/stream/{subject_id}")
-def get_stream(
-    subject_id: str,
-    season: int = Query(default=1, ge=1),
-    episode: int = Query(default=1, ge=1),
-    resource_id: str | None = None,
-    _ = Depends(verify_token)
-):
-    try:
-        return resolve_streams(subject_id, season=season, episode=episode, resource_id=resource_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/v1/titles/{path:path}/playback")
-def get_playback(path: str, season: int = 1, episode: int = 1, _ = Depends(verify_token)):
-    try:
-        subject_id = resolve_subject_id_from_path(path)
-        if not subject_id:
-            raise HTTPException(status_code=404, detail="Subject not found for path")
-
-        return resolve_streams(str(subject_id), season=season, episode=episode)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/v1/titles/{path:path}/captions")
-@app.get("/v1/captions/{subject_id}")
-def get_captions_route(path: str = "", subject_id: str = "", season: int = 1, episode: int = 1, _ = Depends(verify_token)):
-    try:
-        sid = subject_id or resolve_subject_id_from_path(path)
-        if sid:
-            return fetch_captions(str(sid), season=season, episode=episode)
-    except Exception:
-        pass
-    return []
 
 @app.get("/v1/detail/{subject_id}")
 def get_detail_by_id(subject_id: str, _ = Depends(verify_token)):
@@ -911,7 +914,6 @@ def get_title_detail(path: str, _ = Depends(verify_token)):
                 return data
             if payload.get("code") == 0:
                 return data or {}
-        # Fallback to official mobile BFF
         sid = resolve_subject_id_from_path(path)
         if sid:
             off_res = make_official_request("GET", "/wefeed-mobile-bff/subject-api/get", {"subjectId": sid})
