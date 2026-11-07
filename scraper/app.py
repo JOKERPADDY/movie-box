@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     app.state.provider.close()
 
 
-app = FastAPI(title="MovieBox scraper", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="MovieBox scraper", version="1.1.0", lifespan=lifespan)
 app.state.provider = MovieBoxProvider()
 
 
@@ -36,6 +36,7 @@ async def provider_error(_request: Request, error: ProviderError):
     return JSONResponse(status_code=error.status, content={"detail": str(error)})
 
 
+@app.get("/", tags=["Health"])
 @app.get("/health", response_model=Health)
 def health():
     return Health()
@@ -44,6 +45,24 @@ def health():
 @app.get("/v1/home", response_model=Home)
 def home(source: Annotated[MovieBoxProvider, Depends(provider)]):
     return source.home()
+
+
+@app.get("/v1/movies")
+@app.get("/v1/series")
+@app.get("/v1/anime")
+@app.get("/v1/asian")
+@app.get("/v1/western")
+@app.get("/v1/kids")
+@app.get("/v1/category/{category_id}")
+def category_feed(source: Annotated[MovieBoxProvider, Depends(provider)], request: Request, page: Annotated[int, Query(ge=1)] = 1, category_id: int | None = None):
+    cat_map = {"movies": "1", "series": "5", "anime": "8", "asian": "18", "western": "19", "kids": "23"}
+    target_id = str(category_id) if category_id else None
+    if not target_id:
+        for k, v in cat_map.items():
+            if k in request.url.path:
+                target_id = v
+                break
+    return source.ranking(target_id or "1", page)
 
 
 @app.get("/v1/collections/{name}", response_model=Home)
@@ -95,9 +114,21 @@ def popular_searches(source: Annotated[MovieBoxProvider, Depends(provider)]):
     return source.popular_searches()
 
 
-@app.get("/v1/titles/{detail_path}", response_model=Detail)
-def detail(detail_path: str, source: Annotated[MovieBoxProvider, Depends(provider)]):
-    return source.detail(detail_path)
+@app.get("/v1/stream/{subject_id}")
+@app.get("/stream/{subject_id}")
+def stream_by_id(subject_id: str, source: Annotated[MovieBoxProvider, Depends(provider)], season: Annotated[int, Query(ge=1)] = 1, episode: Annotated[int, Query(ge=1)] = 1):
+    pb = source.playback(subject_id, season, episode)
+    captions = source.captions(subject_id, "", season, episode)
+    best_stream = pb.streams[0] if pb.streams else None
+    return {
+        "subjectId": subject_id,
+        "season": season,
+        "episode": episode,
+        "streams": [s.model_dump() for s in pb.streams],
+        "best_stream": best_stream.model_dump() if best_stream else None,
+        "best_url": best_stream.url if best_stream else None,
+        "captions": [c.model_dump() for c in captions]
+    }
 
 
 @app.get("/v1/titles/{detail_path}/episodes", response_model=list[Episode])
@@ -116,5 +147,10 @@ def playback(detail_path: str, source: Annotated[MovieBoxProvider, Depends(provi
 
 
 @app.get("/v1/titles/{detail_path}/captions", response_model=list[Caption])
-def captions(detail_path: str, source: Annotated[MovieBoxProvider, Depends(provider)], stream_id: str, season: Annotated[int, Query(ge=0)] = 0, episode: Annotated[int, Query(ge=0)] = 0):
+def captions(detail_path: str, source: Annotated[MovieBoxProvider, Depends(provider)], stream_id: str = "", season: Annotated[int, Query(ge=0)] = 0, episode: Annotated[int, Query(ge=0)] = 0):
     return source.captions(detail_path, stream_id, season, episode)
+
+
+@app.get("/v1/titles/{detail_path}", response_model=Detail)
+def detail(detail_path: str, source: Annotated[MovieBoxProvider, Depends(provider)]):
+    return source.detail(detail_path)
