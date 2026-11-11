@@ -111,6 +111,18 @@ def get_home(_ = Depends(verify_token)):
             try:
                 token = get_guest_token()
                 headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+                trend_res = session.post(
+                    f"{H5_API_BASE}/subject/search",
+                    json={"keyword": "trending", "page": 1, "perPage": 12, "subjectType": 0},
+                    headers=headers,
+                    timeout=8,
+                )
+                if trend_res.status_code == 200:
+                    trend_items = [_browse_title(x) for x in trend_res.json().get("data", {}).get("items", []) if is_family_friendly(x)]
+                    if trend_items:
+                        sections.insert(0, {"title": "Trending Today", "items": trend_items})
+
                 kenyan_res = session.post(
                     f"{H5_API_BASE}/subject/search",
                     json={"keyword": "kenyan", "page": 1, "perPage": 12, "subjectType": 0},
@@ -120,7 +132,7 @@ def get_home(_ = Depends(verify_token)):
                 if kenyan_res.status_code == 200:
                     kenyan_items = [_browse_title(x) for x in kenyan_res.json().get("data", {}).get("items", []) if is_family_friendly(x)]
                     if kenyan_items:
-                        sections.insert(0, {"title": "Kenyan Movies & Series", "items": kenyan_items})
+                        sections.insert(1 if len(sections) > 0 else 0, {"title": "Kenyan Movies & Series", "items": kenyan_items})
             except Exception:
                 pass
 

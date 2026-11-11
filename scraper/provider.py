@@ -163,7 +163,17 @@ class MovieBoxProvider:
         return value
 
     def home(self) -> Home:
-        return self._cached("home", lambda: _sections(self._data("/home", params={"host": "themoviebox.xyz"})))
+        def load():
+            h = _sections(self._data("/home", params={"host": "themoviebox.xyz"}))
+            try:
+                trending_res = self._api_search("trending", 1)
+                if trending_res.items:
+                    trending_sec = Section(title="Trending Today", kind="row", items=trending_res.items)
+                    h.sections.insert(0, trending_sec)
+            except Exception:
+                pass
+            return h
+        return self._cached("home", load)
 
     def collection(self, name: str) -> Home:
         tabs = {"movies": 2, "midnight": 9}
