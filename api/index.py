@@ -157,10 +157,13 @@ def _browse_title(raw: dict) -> dict:
 def _fetch_row_items(args):
     title, query, sub_type, page, headers, target_kind = args
     try:
+        req_headers = dict(session.headers)
+        if headers:
+            req_headers.update(headers)
         res = session.post(
             f"{H5_API_BASE}/subject/search",
             json={"keyword": query, "page": page, "perPage": 12, "subjectType": 0},
-            headers=headers,
+            headers=req_headers,
             timeout=10,
         )
         if res.status_code == 200:
