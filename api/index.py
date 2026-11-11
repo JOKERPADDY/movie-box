@@ -219,13 +219,24 @@ def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = De
         elif canonical == "kids":
             target_kind = None
             row_queries = [
-                ("All Kids", "kids animation", 0),
-                ("Akili Kids", "akili kids", 0),
+                ("All", "kids animation", 0),
                 ("Paw Patrol", "paw patrol", 0),
-                ("Pixar Studio", "pixar", 0),
-                ("Disney Classics", "disney animation", 0),
-                ("Minions & Despicable Me", "minions", 0),
+                ("Cartoon Movies", "cartoon movie", 0),
                 ("Cartoon Series", "cartoon series", 0),
+                ("Baby", "baby cartoon", 0),
+                ("Age 2-6", "toddler kids", 0),
+                ("Pixar", "pixar", 0),
+                ("DreamWorks", "dreamworks", 0),
+                ("Blue Sky Studios", "ice age blue sky", 0),
+                ("Illumination", "illumination animation", 0),
+                ("Disney's Full-length Animated Classics", "disney animation", 0),
+                ("Toys", "toy story", 0),
+                ("Kung Fu Panda", "kung fu panda", 0),
+                ("Cars", "cars animation", 0),
+                ("Frozen", "frozen disney", 0),
+                ("Minion", "minions", 0),
+                ("Peppa Pig", "peppa pig", 0),
+                ("Akili Kids", "akili kids", 0),
             ]
         elif canonical == "anime":
             target_kind = None
@@ -233,20 +244,10 @@ def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = De
                 ("All Anime", "anime series", 0),
                 ("Anime Movies", "anime movie", 0),
                 ("Japanese Anime", "japanese anime", 0),
-                ("Dragon Ball Universe", "dragon ball", 0),
-                ("Naruto Series", "naruto", 0),
-                ("One Piece", "one piece", 0),
-            ]
-        elif canonical == "anime":
-            target_kind = None
-            row_queries = [
-                ("All Anime", "anime series", 0),
-                ("Anime Movies", "anime movie", 0),
-                ("Japanese Anime", "japanese anime", 0),
-                ("European & American Anime", "western animation", 0),
-                ("Kids Anime (Age 7-12)", "kids anime", 0),
-                ("Dragon Ball Universe", "dragon ball", 0),
-                ("Naruto Series", "naruto", 0),
+                ("European and American Anime", "western animation", 0),
+                ("Age 7-12", "kids anime", 0),
+                ("Dragon Ball", "dragon ball", 0),
+                ("Naruto", "naruto", 0),
                 ("One Piece", "one piece", 0),
             ]
         else:

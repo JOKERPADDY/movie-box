@@ -229,21 +229,34 @@ class MovieBoxProvider:
             ]
         elif canonical == "kids":
             queries = [
-                ("All Kids", "kids animation", None),
-                ("Akili Kids", "akili kids", None),
+                ("All", "kids animation", None),
                 ("Paw Patrol", "paw patrol", None),
-                ("Pixar Studio", "pixar", None),
-                ("Disney Classics", "disney animation", None),
-                ("Minions & Despicable Me", "minions", None),
+                ("Cartoon Movies", "cartoon movie", None),
                 ("Cartoon Series", "cartoon series", None),
+                ("Baby", "baby cartoon", None),
+                ("Age 2-6", "toddler kids", None),
+                ("Pixar", "pixar", None),
+                ("DreamWorks", "dreamworks", None),
+                ("Blue Sky Studios", "ice age blue sky", None),
+                ("Illumination", "illumination animation", None),
+                ("Disney's Full-length Animated Classics", "disney animation", None),
+                ("Toys", "toy story", None),
+                ("Kung Fu Panda", "kung fu panda", None),
+                ("Cars", "cars animation", None),
+                ("Frozen", "frozen disney", None),
+                ("Minion", "minions", None),
+                ("Peppa Pig", "peppa pig", None),
+                ("Akili Kids", "akili kids", None),
             ]
         elif canonical == "anime":
             queries = [
                 ("All Anime", "anime series", None),
                 ("Anime Movies", "anime movie", None),
                 ("Japanese Anime", "japanese anime", None),
-                ("Dragon Ball Universe", "dragon ball", None),
-                ("Naruto Series", "naruto", None),
+                ("European and American Anime", "western animation", None),
+                ("Age 7-12", "kids anime", None),
+                ("Dragon Ball", "dragon ball", None),
+                ("Naruto", "naruto", None),
                 ("One Piece", "one piece", None),
             ]
         else:
