@@ -2,6 +2,7 @@ import os
 import time
 import json
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, HTTPException, Query, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -93,12 +94,92 @@ def get_home(_ = Depends(verify_token)):
     try:
         res = session.get(f"{H5_API_BASE}/home", params={"host": "themoviebox.xyz"}, timeout=15)
         if res.status_code == 200:
-            return res.json().get("data", {"banners": [], "sections": []})
+            data = res.json().get("data", {})
+            banners = []
+            sections = []
+            for item in data.get("operatingList") or []:
+                if item.get("type") == "BANNER":
+                    banners.extend(_browse_title(x["subject"]) for x in (item.get("banner") or {}).get("items") or [] if x.get("subject"))
+                elif item.get("subjects"):
+                    sec_items = [_browse_title(x) for x in item["subjects"] if is_family_friendly(x)]
+                    if sec_items:
+                        sections.append({
+                            "title": item.get("title") or "Recommended",
+                            "items": sec_items
+                        })
+
+            try:
+                token = get_guest_token()
+                headers = {"Authorization": f"Bearer {token}"} if token else {}
+                kenyan_res = session.post(
+                    f"{H5_API_BASE}/subject/search",
+                    json={"keyword": "kenyan", "page": 1, "perPage": 12, "subjectType": 0},
+                    headers=headers,
+                    timeout=8,
+                )
+                if kenyan_res.status_code == 200:
+                    kenyan_items = [_browse_title(x) for x in kenyan_res.json().get("data", {}).get("items", []) if is_family_friendly(x)]
+                    if kenyan_items:
+                        sections.insert(0, {"title": "Kenyan Movies & Series", "items": kenyan_items})
+            except Exception:
+                pass
+
+            return {"banners": banners, "sections": sections}
     except Exception:
         pass
     return {"banners": [], "sections": []}
 
+def _browse_title(raw: dict) -> dict:
+    cover = raw.get("cover") or {}
+    stills = raw.get("stills") or {}
+    sid = str(raw.get("subjectId") or raw.get("id") or "")
+    path = raw.get("detailPath") or raw.get("detail_path") or ""
+    return {
+        "id": sid,
+        "detail_path": path,
+        "kind": {1: "movie", 2: "series", 7: "short_series"}.get(raw.get("subjectType"), raw.get("kind", "other")),
+        "title": raw.get("title") or "",
+        "description": raw.get("description") or "",
+        "release_date": raw.get("releaseDate") or None,
+        "duration_seconds": raw.get("duration") or None,
+        "genres": [value.strip() for value in (raw.get("genre") or "").split(",") if value.strip()],
+        "poster_url": cover.get("url") or raw.get("poster_url"),
+        "backdrop_url": stills.get("url") or raw.get("backdrop_url"),
+        "country": raw.get("countryName") or None,
+        "rating": raw.get("imdbRatingValue") or raw.get("rating"),
+        "has_resource": bool(raw.get("hasResource") or raw.get("has_resource")),
+        "subjectId": sid,
+        "detailPath": path,
+        "cover": cover,
+        "stills": stills,
+    }
+
+def _fetch_row_items(args):
+    title, query, sub_type, page, headers, target_kind = args
+    try:
+        res = session.post(
+            f"{H5_API_BASE}/subject/search",
+            json={"keyword": query, "page": page, "perPage": 12, "subjectType": sub_type},
+            headers=headers,
+            timeout=10,
+        )
+        if res.status_code == 200:
+            data = res.json().get("data", {})
+            sec_items = []
+            for x in data.get("items", []):
+                if is_family_friendly(x):
+                    formatted = _browse_title(x)
+                    if target_kind and formatted.get("kind") != target_kind:
+                        continue
+                    sec_items.append(formatted)
+            if sec_items:
+                return (title, sec_items)
+    except Exception:
+        pass
+    return None
+
 @app.get("/v1/catalog/{name}")
+@app.get("/v1/collections/{name}")
 def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = Depends(verify_token)):
     try:
         canonical = name.lower().strip()
@@ -107,91 +188,139 @@ def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = De
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
+        target_kind = None
+        if canonical in ("movies", "movie"):
+            target_kind = "movie"
+            row_queries = [
+                ("All Movies", "trending movie", 1),
+                ("Teen Romance", "teen romance movie", 1),
+                ("Latest Movies", "latest movies", 1),
+                ("All Cinema", "cinema movie", 1),
+                ("Netflix Movies", "netflix movie", 1),
+                ("Kenyan Movies", "kenyan movie", 1),
+                ("South Africa", "south african movie", 1),
+                ("Disney+ Movies", "disney plus movie", 1),
+                ("Paramount+ Movies", "paramount plus movie", 1),
+                ("Action", "action movie", 1),
+                ("Crime", "crime movie", 1),
+                ("Drama", "drama movie", 1),
+                ("Adventure", "adventure movie", 1),
+                ("Comedy", "comedy movie", 1),
+                ("Thriller", "thriller movie", 1),
+                ("Romance", "romance movie", 1),
+                ("Sci-Fi", "sci-fi movie", 1),
+                ("Documentary", "documentary movie", 1),
+                ("Horror", "horror movie", 1),
+                ("Fantasy", "fantasy movie", 1),
+                ("Family", "family movie", 1),
+                ("History", "history movie", 1),
+                ("Mystery", "mystery movie", 1),
+                ("War", "war movie", 1),
+                ("Biography", "biography movie", 1),
+                ("Western", "western movie", 1),
+            ]
+        elif canonical in ("series", "tv", "tvshows"):
+            target_kind = "series"
+            row_queries = [
+                ("New Season & Episode", "new season", 2),
+                ("Teen Romance", "teen romance series", 2),
+                ("Kenyan Series", "kenyan series", 2),
+                ("South Africa", "south african series", 2),
+                ("NETFLIX", "netflix series", 2),
+                ("Prime Video", "prime video series", 2),
+                ("Disney+", "disney plus series", 2),
+                ("MAX", "hbo max series", 2),
+                ("Paramount+", "paramount plus series", 2),
+                ("Apple TV+", "apple tv series", 2),
+                ("Hulu", "hulu series", 2),
+                ("Action", "action series", 2),
+                ("Adventure", "adventure series", 2),
+                ("Comedy", "comedy series", 2),
+                ("Crime", "crime series", 2),
+                ("Documentary", "documentary series", 2),
+                ("Drama", "drama series", 2),
+                ("Family", "family series", 2),
+                ("Fantasy", "fantasy series", 2),
+                ("History", "history series", 2),
+                ("Horror", "horror series", 2),
+                ("Mystery", "mystery series", 2),
+                ("Romance", "romance series", 2),
+                ("Thriller", "thriller series", 2),
+                ("War", "war series", 2),
+                ("Biography", "biography series", 2),
+                ("Sci-Fi", "sci-fi series", 2),
+                ("Reality TV", "reality tv", 2),
+                ("Sport", "sports series", 2),
+                ("Musical", "musical series", 2),
+                ("Western", "western series", 2),
+                ("All Series", "trending series", 2),
+            ]
+        elif canonical == "kids":
+            target_kind = None
+            row_queries = [
+                ("All Kids", "kids animation", 0),
+                ("Akili Kids", "akili kids", 0),
+                ("Paw Patrol", "paw patrol", 0),
+                ("Cartoon Movies", "cartoon movie", 0),
+                ("Cartoon Series", "cartoon series", 0),
+                ("Baby & Toddler", "baby cartoon", 0),
+                ("Age 2-6", "toddler kids", 0),
+                ("Pixar Studio", "pixar", 0),
+                ("DreamWorks", "dreamworks", 0),
+                ("Blue Sky Studios", "ice age blue sky", 0),
+                ("Illumination", "illumination animation", 0),
+                ("Disney Classics", "disney animation", 0),
+                ("Toys & Toy Story", "toy story", 0),
+                ("Kung Fu Panda", "kung fu panda", 0),
+                ("Cars Franchise", "cars animation", 0),
+                ("Frozen & Princesses", "frozen disney", 0),
+                ("Minions & Despicable Me", "minions", 0),
+                ("Peppa Pig", "peppa pig", 0),
+            ]
+        elif canonical == "anime":
+            target_kind = None
+            row_queries = [
+                ("All Anime", "anime series", 0),
+                ("Anime Movies", "anime movie", 0),
+                ("Japanese Anime", "japanese anime", 0),
+                ("European & American Anime", "western animation", 0),
+                ("Kids Anime (Age 7-12)", "kids anime", 0),
+                ("Dragon Ball Universe", "dragon ball", 0),
+                ("Naruto Series", "naruto", 0),
+                ("One Piece", "one piece", 0),
+            ]
+        else:
+            keyword = canonical if canonical != "animation" else "animation"
+            row_queries = [(name.capitalize(), keyword, 0)]
+
+        tasks = [(title, query, sub_type, page, headers, target_kind) for title, query, sub_type in row_queries]
+
         sections = []
         all_items = []
         seen_ids = set()
 
-        if canonical == "kids":
-            row_queries = [
-                ("Cartoon Movies", "cartoon movie"),
-                ("Cartoon Series", "cartoon series"),
-                ("Pixar Studio", "pixar"),
-                ("DreamWorks Studio", "dreamworks"),
-                ("Illumination Studio", "illumination"),
-                ("Kung Fu Panda", "kung fu panda"),
-                ("Cars", "cars"),
-                ("Frozen", "frozen"),
-                ("Minions", "minions"),
-            ]
-            for title, query in row_queries:
-                res = session.post(
-                    f"{H5_API_BASE}/subject/search",
-                    json={"keyword": query, "page": page, "perPage": 12, "subjectType": 0},
-                    headers=headers,
-                    timeout=15,
-                )
-                sec_items = []
-                if res.status_code == 200:
-                    data = res.json().get("data", {})
-                    for x in data.get("items", []):
-                        if is_family_friendly(x):
-                            sec_items.append(x)
-                            sid = x.get("subjectId")
-                            if sid not in seen_ids:
-                                seen_ids.add(sid)
-                                all_items.append(x)
-                if sec_items:
-                    sections.append({"title": title, "items": sec_items})
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(_fetch_row_items, tasks))
 
-        elif canonical == "anime":
-            row_queries = [
-                ("Anime Movies", "anime movie"),
-                ("Japanese Anime", "japanese anime"),
-                ("Western Anime", "western animation"),
-                ("Dragon Ball", "dragon ball"),
-                ("Naruto", "naruto"),
-                ("One Piece", "one piece"),
-            ]
-            for title, query in row_queries:
-                res = session.post(
-                    f"{H5_API_BASE}/subject/search",
-                    json={"keyword": query, "page": page, "perPage": 12, "subjectType": 0},
-                    headers=headers,
-                    timeout=15,
-                )
-                sec_items = []
-                if res.status_code == 200:
-                    data = res.json().get("data", {})
-                    for x in data.get("items", []):
-                        if is_family_friendly(x) and "anime" in (x.get("genre") or "").casefold():
-                            sec_items.append(x)
-                            sid = x.get("subjectId")
-                            if sid not in seen_ids:
-                                seen_ids.add(sid)
-                                all_items.append(x)
-                if sec_items:
-                    sections.append({"title": title, "items": sec_items})
-        else:
-            keyword = canonical if canonical != "animation" else "animation"
-            res = session.post(
-                f"{H5_API_BASE}/subject/search",
-                json={"keyword": keyword, "page": page, "perPage": 28, "subjectType": 0},
-                headers=headers,
-                timeout=15,
-            )
-            if res.status_code == 200:
-                data = res.json().get("data", {})
-                all_items = [x for x in data.get("items", []) if is_family_friendly(x)]
-                sections = [{"title": name.capitalize(), "items": all_items}]
+        for res in results:
+            if res:
+                title, sec_items = res
+                sections.append({"title": title, "items": sec_items})
+                for item in sec_items:
+                    sid = item.get("id")
+                    if sid and sid not in seen_ids:
+                        seen_ids.add(sid)
+                        all_items.append(item)
 
         return {
+            "banners": [],
             "items": all_items,
             "sections": sections,
             "next_page": page + 1 if len(all_items) >= 10 else None
         }
     except Exception:
         pass
-    return {"items": [], "sections": [], "next_page": None}
+    return {"banners": [], "items": [], "sections": [], "next_page": None}
 
 @app.get("/v1/search")
 def get_search(q: str = Query(...), page: int = 1, _ = Depends(verify_token)):
