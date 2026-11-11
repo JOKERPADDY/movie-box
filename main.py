@@ -264,6 +264,7 @@ def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = De
                 ("Latest Movies", "latest movies", 0),
                 ("All Cinema", "cinema movie", 0),
                 ("Netflix Movies", "netflix movie", 0),
+                ("Kenyan Movies", "kenyan movie", 0),
                 ("South Africa", "south african movie", 0),
                 ("Disney+ Movies", "disney plus movie", 0),
                 ("Paramount+ Movies", "paramount plus movie", 0),
@@ -290,6 +291,7 @@ def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = De
             row_queries = [
                 ("New Season & Episode", "new season", 0),
                 ("Teen Romance", "teen romance series", 0),
+                ("Kenyan Series", "kenyan series", 0),
                 ("South Africa", "south african series", 0),
                 ("NETFLIX", "netflix series", 0),
                 ("Prime Video", "prime video series", 0),

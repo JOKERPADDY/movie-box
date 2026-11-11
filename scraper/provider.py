@@ -222,6 +222,7 @@ class MovieBoxProvider:
                 ("Latest Movies", "latest movies", "movie"),
                 ("All Cinema", "cinema movie", "movie"),
                 ("Netflix Movies", "netflix movie", "movie"),
+                ("Kenyan Movies", "kenyan movie", "movie"),
                 ("South Africa", "south african movie", "movie"),
                 ("Disney+ Movies", "disney plus movie", "movie"),
                 ("Paramount+ Movies", "paramount plus movie", "movie"),
@@ -247,6 +248,7 @@ class MovieBoxProvider:
             queries = [
                 ("New Season & Episode", "new season", "series"),
                 ("Teen Romance", "teen romance series", "series"),
+                ("Kenyan Series", "kenyan series", "series"),
                 ("South Africa", "south african series", "series"),
                 ("NETFLIX", "netflix series", "series"),
                 ("Prime Video", "prime video series", "series"),
