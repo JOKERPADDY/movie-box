@@ -314,17 +314,23 @@ class MovieBoxProvider:
         else:
             queries = [(name.capitalize(), canonical, None)]
 
-        sections = []
-        for title, kw, kind_filter in queries:
+        def fetch_row(args):
+            title, kw, kind_filter = args
             try:
                 res = self._api_search(kw, page)
                 items = res.items
                 if kind_filter:
                     items = [x for x in items if x.kind == kind_filter]
                 if items:
-                    sections.append(Section(title=title, kind="row", items=items))
+                    return Section(title=title, kind="row", items=items)
             except Exception:
                 pass
+            return None
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(fetch_row, queries))
+
+        sections = [r for r in results if r is not None]
 
         return Home(banners=[], sections=sections)
 
