@@ -65,7 +65,7 @@ def catalog_filters(name: str, source: Annotated[MovieBoxProvider, Depends(provi
     return source.catalog_filters(name)
 
 
-@app.get("/v1/catalog/{name}", response_model=Page)
+@app.get("/v1/catalog/{name}", response_model=Home)
 def catalog(name: str, source: Annotated[MovieBoxProvider, Depends(provider)], page: Annotated[int, Query(ge=1)] = 1, genre: Annotated[str | None, Query(max_length=80)] = None, country: Annotated[str | None, Query(max_length=80)] = None, year: Annotated[str | None, Query(max_length=10)] = None, language: Annotated[str | None, Query(max_length=80)] = None, sort: Annotated[str | None, Query(max_length=40)] = None):
     return source.catalog(name, page, genre=genre, country=country, year=year, language=language, sort=sort)
 

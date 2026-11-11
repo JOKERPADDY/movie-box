@@ -203,15 +203,65 @@ class MovieBoxProvider:
         pager = data.get("pager") or {}
         return Page(items=items, page=page, next_page=_number(pager.get("nextPage")) if pager.get("hasMore") else None, has_more=bool(pager.get("hasMore")))
 
-    def catalog(self, name: str, page: int = 1, *, genre: str | None = None, country: str | None = None, year: str | None = None, language: str | None = None, sort: str | None = None) -> Page:
-        channels = {"movies": 1, "series": 2, "animation": 1006}
-        if name not in channels:
-            raise ProviderError("Catalog not found", 404)
-        body = {"channelId": channels[name], "page": page, "perPage": 28, "sort": sort or "ForYou"}
-        body.update({key: value for key, value in {"genre": genre, "country": country, "year": year, "classify": language}.items() if value and value != "All"})
-        data = self._cached(f"catalog:{json.dumps(body, sort_keys=True)}", lambda: self._data("/subject/filter", body=body))
-        pager = data.get("pager") or {}
-        return Page(items=[_title(x) for x in data.get("items") or []], page=page, next_page=_number(pager.get("nextPage")) if pager.get("hasMore") else None, has_more=bool(pager.get("hasMore")))
+    def catalog(self, name: str, page: int = 1, *, genre: str | None = None, country: str | None = None, year: str | None = None, language: str | None = None, sort: str | None = None) -> Home:
+        canonical = name.lower().strip()
+        if canonical in ("movies", "movie"):
+            queries = [
+                ("All Movies", "trending movie", "movie"),
+                ("Latest Movies", "latest movies", "movie"),
+                ("Netflix Movies", "netflix movie", "movie"),
+                ("Kenyan Movies", "kenyan movie", "movie"),
+                ("Action", "action movie", "movie"),
+                ("Comedy", "comedy movie", "movie"),
+                ("Drama", "drama movie", "movie"),
+                ("Horror", "horror movie", "movie"),
+            ]
+        elif canonical in ("series", "tv", "tvshows"):
+            queries = [
+                ("New Season & Episode", "new season", "series"),
+                ("NETFLIX", "netflix series", "series"),
+                ("Prime Video", "prime video series", "series"),
+                ("Disney+", "disney plus series", "series"),
+                ("Kenyan Series", "kenyan series", "series"),
+                ("Action", "action series", "series"),
+                ("Comedy", "comedy series", "series"),
+                ("Drama", "drama series", "series"),
+            ]
+        elif canonical == "kids":
+            queries = [
+                ("All Kids", "kids animation", None),
+                ("Akili Kids", "akili kids", None),
+                ("Paw Patrol", "paw patrol", None),
+                ("Pixar Studio", "pixar", None),
+                ("Disney Classics", "disney animation", None),
+                ("Minions & Despicable Me", "minions", None),
+                ("Cartoon Series", "cartoon series", None),
+            ]
+        elif canonical == "anime":
+            queries = [
+                ("All Anime", "anime series", None),
+                ("Anime Movies", "anime movie", None),
+                ("Japanese Anime", "japanese anime", None),
+                ("Dragon Ball Universe", "dragon ball", None),
+                ("Naruto Series", "naruto", None),
+                ("One Piece", "one piece", None),
+            ]
+        else:
+            queries = [(name.capitalize(), canonical, None)]
+
+        sections = []
+        for title, kw, kind_filter in queries:
+            try:
+                res = self._api_search(kw, page)
+                items = res.items
+                if kind_filter:
+                    items = [x for x in items if x.kind == kind_filter]
+                if items:
+                    sections.append(Section(title=title, kind="row", items=items))
+            except Exception:
+                pass
+
+        return Home(banners=[], sections=sections)
 
     def catalog_filters(self, name: str) -> CatalogFilters:
         paths = {"series": "/web/tv-series", "animation": "/web/animated-series"}
