@@ -314,11 +314,22 @@ class MovieBoxProvider:
         else:
             queries = [(name.capitalize(), canonical, None)]
 
+        def _is_clean(t: Title) -> bool:
+            title_str = (t.title or "").casefold()
+            genre_str = (" ".join(t.genres) if t.genres else "").casefold()
+            bad_keywords = [
+                "adult", "erotica", "savita", "porn", "sex", "orgasm",
+                "hentai", "uncensored", "ecchi", "seinen", "mature",
+                "official video", "music video", "audio song", "lyrics",
+                "kikuyu comedy", "full audio", "official audio"
+            ]
+            return not any(b in title_str or b in genre_str for b in bad_keywords)
+
         sections = []
         for title, kw, kind_filter in queries:
             try:
                 res = self._api_search(kw, page)
-                items = res.items
+                items = [x for x in res.items if _is_clean(x)]
                 if kind_filter:
                     items = [x for x in items if x.kind == kind_filter]
                 if items:

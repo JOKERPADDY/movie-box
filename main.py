@@ -73,7 +73,9 @@ def is_family_friendly(item: dict) -> bool:
         "hentai", "uncensored", "ecchi", "seinen", "mature",
         "melty", "yamitsuki", "kowaremono", "mesudachi", "torokase",
         "inyouchuu", "shiranai", "nagachichi", "kaede", "suzu", "shoku",
-        "brickleberry", "kengan ashura", "edition"
+        "brickleberry", "kengan ashura", "edition",
+        "official video", "music video", "audio song", "lyrics",
+        "kikuyu comedy", "full audio", "official audio"
     ]
     if any(b in title_str or b in genre_str for b in bad_keywords):
         return False
