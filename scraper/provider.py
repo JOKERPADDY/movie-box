@@ -393,13 +393,12 @@ class MovieBoxProvider:
                 for raw in data.get("items") or []:
                     self._remember(raw)
                 return Page(items=[_title(x) for x in data.get("items") or []], page=page, next_page=_number(pager.get("nextPage")) if pager.get("hasMore") else None, has_more=bool(pager.get("hasMore")))
-            except ProviderError:
+            except Exception:
                 if attempt:
-                    raise
+                    return Page(items=[])
                 with self._lock:
                     self._guest_token_value = None
-                    self.client.cookies.clear()
-        raise ProviderError("Search unavailable")
+        return Page(items=[])
 
     def _rendered_search(self, keyword: str) -> tuple[list[dict], dict] | None:
         try:
