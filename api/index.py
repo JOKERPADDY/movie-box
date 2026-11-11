@@ -274,7 +274,7 @@ def get_catalog(name: str, page: int = 1, genre: str = Query(default=""), _ = De
             "sections": sections
         }
     except Exception as e:
-        return {"banners": [], "sections": []}
+        return {"error": str(e), "banners": [], "sections": []}
 
 @app.get("/v1/search")
 def get_search(q: str = Query(...), page: int = 1, _ = Depends(verify_token)):
