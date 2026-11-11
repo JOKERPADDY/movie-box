@@ -211,7 +211,7 @@ def _fetch_row_items(args):
     try:
         res = session.post(
             f"{H5_API_BASE}/subject/search",
-            json={"keyword": query, "page": page, "perPage": 12, "subjectType": sub_type},
+            json={"keyword": query, "page": page, "perPage": 12, "subjectType": 0},
             headers=headers,
             timeout=10,
         )
